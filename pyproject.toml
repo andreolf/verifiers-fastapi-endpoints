@@ -1,0 +1,22 @@
+[project]
+name = "fastapi-endpoints"
+version = "0.1.0"
+description = "Single-turn eval of a model's ability to write correct FastAPI endpoint code (static-analysis rewards, no code execution)."
+requires-python = ">=3.11"
+dependencies = [
+    "verifiers>=0.1.0",
+    "datasets>=2.14.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+# flat single-module environment
+include = ["fastapi_endpoints.py"]
+
+[tool.prime.environment]
+# metadata the Hub reads; entrypoint is the module's load_environment()
+entrypoint = "fastapi_endpoints:load_environment"
+tags = ["code", "fastapi", "python", "single-turn", "static-analysis"]
