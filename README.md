@@ -1,66 +1,73 @@
 # fastapi-endpoints
 
-A single-turn evaluation of a model's ability to write **correct FastAPI endpoint code** from a
-natural-language spec. Built with the verifiers **v0** API (`load_environment` →
+An evaluation of a model's ability to write **correct FastAPI code** from a natural-language spec
+(or to repair a broken snippet). Built with the verifiers **v0** API (`load_environment` →
 `vf.SingleTurnEnv`), the format the Environments Hub installs today.
 
-This is a compact, self-contained **learning-rep** environment: it demonstrates the exact shape
-a "Software Library Evals" bounty submission needs (dataset + a multi-function weighted rubric)
-without external services.
+Scoring combines a cheap **static floor** with an **execution-based** signal: each generated app
+is started under FastAPI's `TestClient` in an isolated subprocess and hit with real requests, so
+the reward reflects actual behavior — not surface pattern-matching.
 
 ## What it tests
 
-Given a spec like *"a POST endpoint at `/users` that accepts a Pydantic body with `name` and
-`age`"*, the model must return a FastAPI snippet. The reward is a weighted sum of **static
-checks** (the code is parsed with `ast`, never executed — so grading is deterministic, fast, and
-safe):
+11 tasks across three difficulty tiers, covering: basic routes, integer path params, Pydantic
+request bodies, optional query params, explicit status codes (`201`), `APIRouter` with a prefix,
+dependency injection (`Depends`), `response_model`, and two "fix the broken snippet" repair
+tasks.
+
+## Reward
 
 | check | weight | reward when |
 |---|---:|---|
-| `valid_python` | 0.2 | the snippet parses as Python |
-| `constructs_app` | 0.2 | it instantiates `FastAPI()` |
-| `correct_route` | 0.4 | it declares a route with the required method **and** exact path |
-| `uses_pydantic_when_required` | 0.2 | it defines a `BaseModel` iff the task needs a request body |
+| `valid_python` | 0.1 | the snippet parses as Python |
+| `constructs_app` | 0.1 | it instantiates `FastAPI()` |
+| `correct_method` | 0.1 | it declares a route with the required HTTP method |
+| `endpoint_behaves` | **0.7** | fraction of behavior checks passing — the app is run with `TestClient` and each request's status code + JSON body is asserted |
 
-The route check is the highest-weighted signal; the Pydantic check is two-sided (penalizes
-adding a model when none is needed), so the reward is discriminative rather than a checklist a
-model can pass by dumping boilerplate.
+Execution dominates by design: the static checks are a partial-credit floor, and behavior is the
+real signal. A model can't score well by emitting plausible boilerplate — the endpoint has to
+actually respond correctly.
 
-## Run it
+## Validation (no model/API key needed)
+
+The rubric is validated against crafted good/bad solutions, including the real execution path:
+
+```bash
+python -m venv .venv && . .venv/bin/activate
+pip install fastapi httpx
+python validate_fastapi_env.py
+```
+
+Expected: every correct solution (health, POST+Pydantic, optional query param, status 201,
+router, `Depends`, `response_model`, repair) scores **1.00**; a syntactically-valid app that
+returns the wrong body scores **0.30** (static floor only); non-code scores **0.00**.
+
+## Run a real eval
 
 ```bash
 uv pip install -e .
-# vf-eval needs an OpenAI-compatible endpoint:
 export OPENAI_API_KEY=sk-...            # and OPENAI_BASE_URL=... for a non-OpenAI provider
-uv run vf-eval fastapi-endpoints -n 5 -r 3
+uv run vf-eval fastapi-endpoints -n 11 -r 3
 ```
 
 Sample rollouts and the reward distribution are written to `outputs/`.
 
-## Design notes / how to extend toward the real bounty
+## Roadmap toward a Hub-quality FastAPI eval
 
-- **Grow the dataset.** 5 hand-authored tasks are enough to validate the harness; a bounty
-  submission wants breadth (dependencies with `Depends`, response models, status codes, query
-  params with validation, routers, async DB deps) and difficulty tiers.
-- **Add execution-based rewards.** Static checks are a floor. The strongest version spins up the
-  app with FastAPI's `TestClient` in a sandbox and asserts real request/response behavior — a
-  `vf.ToolEnv`/multi-turn variant, or an in-runtime verifier script (see the v1 `gsm8k_v1`
-  pattern that runs a `uv` verifier inside the rollout runtime).
-- **Baseline before publishing.** Record a known model's score in this README so reviewers can
-  see the reward is calibrated (not saturated at 1.0 or stuck at 0).
+- **More breadth/difficulty:** nested/enum bodies, header & cookie params, form data, background
+  tasks, error paths (422/404), and multi-endpoint apps with shared state.
+- **Harden the sandbox:** the behavior reward currently runs the model's code in a subprocess
+  with a timeout — fine locally, but on the Hub/training this belongs in verifiers' sandboxed
+  runtime; migrate to that for untrusted execution.
+- **Calibrated baseline:** commit `outputs/` from a real `vf-eval` run and record a frontier
+  model's score here so reviewers can see the reward is neither saturated nor floored.
 
-## Status
+## Safety note
 
-Reward logic validated locally against crafted good/bad completions:
-
-```bash
-python3 validate_fastapi_env.py
-# -> good POST 1.00, wrong path 0.60, missing model 0.80, non-code 0.00
-```
-
-A full `vf-eval` run requires a model endpoint/API key (see "Run it" above).
+The `endpoint_behaves` reward executes model-generated code. It runs in a subprocess with a
+timeout as a local approximation; do not run untrusted completions outside a proper sandbox.
 
 ---
 
-*Built as a warm-up reference environment for the Prime Intellect Environments Hub
-"Software Library Evals" program. Uses the verifiers v0 `load_environment` API.*
+*Built as a reference environment for the Prime Intellect Environments Hub "Software Library
+Evals" program. Uses the verifiers v0 `load_environment` API.*
