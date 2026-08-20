@@ -114,6 +114,48 @@ TASKS: list[dict] = [
         "info": {"tier": 2, "method": "get",
                  "exec": [{"method": "get", "path": "/double/5", "status": 200, "json_subset": {"doubled": 10}}]},
     },
+    {
+        "question": "Create a FastAPI app with a GET endpoint at '/items/{item_id}' (integer). If "
+        "item_id == 1, return {'item_id': 1, 'name': 'widget'}; otherwise raise an HTTPException with "
+        "status code 404.",
+        "info": {"tier": 3, "method": "get",
+                 "exec": [{"method": "get", "path": "/items/1", "status": 200,
+                           "json_subset": {"item_id": 1, "name": "widget"}},
+                          {"method": "get", "path": "/items/2", "status": 404}]},
+    },
+    {
+        "question": "Create a FastAPI app with a POST endpoint at '/signup' that accepts a Pydantic "
+        "body with 'email' (str) and 'age' (int) and returns it. Rely on FastAPI's automatic request "
+        "validation for malformed bodies.",
+        "info": {"tier": 3, "method": "post",
+                 "exec": [{"method": "post", "path": "/signup", "json": {"email": "a@b.com", "age": 30},
+                           "status": 200, "json_subset": {"email": "a@b.com", "age": 30}},
+                          {"method": "post", "path": "/signup", "json": {"email": "a@b.com", "age": "not-an-int"},
+                           "status": 422}]},
+    },
+    {
+        "question": "Create a FastAPI app with a GET endpoint at '/whoami' that reads a required request "
+        "header 'X-User' (use fastapi.Header) and returns {'user': <that header value>}.",
+        "info": {"tier": 3, "method": "get",
+                 "exec": [{"method": "get", "path": "/whoami", "headers": {"X-User": "alice"},
+                           "status": 200, "json_subset": {"user": "alice"}},
+                          {"method": "get", "path": "/whoami", "status": 422}]},
+    },
+    {
+        "question": "Create a FastAPI app with a GET endpoint at '/search' that has a query parameter "
+        "'limit' (int) with default 10, constrained to be at most 100 using Query(le=100). Return "
+        "{'limit': limit}.",
+        "info": {"tier": 3, "method": "get",
+                 "exec": [{"method": "get", "path": "/search?limit=50", "status": 200, "json_subset": {"limit": 50}},
+                          {"method": "get", "path": "/search", "status": 200, "json_subset": {"limit": 10}},
+                          {"method": "get", "path": "/search?limit=200", "status": 422}]},
+    },
+    {
+        "question": "Create a FastAPI app with a DELETE endpoint at '/items/{item_id}' (integer) that "
+        "returns HTTP status 204 with no response body.",
+        "info": {"tier": 2, "method": "delete",
+                 "exec": [{"method": "delete", "path": "/items/3", "status": 204}]},
+    },
 ]
 
 # Runs inside an isolated subprocess: load the model's app, exercise it with TestClient.
@@ -152,7 +194,10 @@ def main():
     passed = 0
     for check in checks:
         try:
-            resp = client.request(check["method"].upper(), check["path"], json=check.get("json"))
+            resp = client.request(
+                check["method"].upper(), check["path"],
+                json=check.get("json"), headers=check.get("headers"),
+            )
             ok = resp.status_code == check["status"]
             if ok and "json_subset" in check:
                 body = resp.json()
