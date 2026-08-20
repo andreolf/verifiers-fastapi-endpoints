@@ -156,6 +156,53 @@ TASKS: list[dict] = [
         "info": {"tier": 2, "method": "delete",
                  "exec": [{"method": "delete", "path": "/items/3", "status": 204}]},
     },
+    {
+        "question": "Create a FastAPI app with a POST endpoint at '/orders' that accepts a Pydantic body "
+        "with a nested 'customer' object ({'name': str, 'email': str}) and a 'total' (float), using "
+        "nested Pydantic models, and returns the order.",
+        "info": {"tier": 3, "method": "post",
+                 "exec": [{"method": "post", "path": "/orders",
+                           "json": {"customer": {"name": "Ada", "email": "a@b.com"}, "total": 9.5},
+                           "status": 200,
+                           "json_subset": {"customer": {"name": "Ada", "email": "a@b.com"}, "total": 9.5}},
+                          {"method": "post", "path": "/orders",
+                           "json": {"customer": {"name": "Ada"}, "total": 9.5}, "status": 422}]},
+    },
+    {
+        "question": "Create a FastAPI app with a GET endpoint at '/color/{name}' where 'name' is a string "
+        "Enum with members red, green, blue. Return {'color': name}. Rely on FastAPI validation for "
+        "invalid values.",
+        "info": {"tier": 3, "method": "get",
+                 "exec": [{"method": "get", "path": "/color/red", "status": 200, "json_subset": {"color": "red"}},
+                          {"method": "get", "path": "/color/purple", "status": 422}]},
+    },
+    {
+        "question": "Create a FastAPI app with an in-memory store. POST '/notes' accepts a Pydantic body "
+        "{'text': str}, assigns an incrementing integer id starting at 1, stores the note, and returns "
+        "{'id': id, 'text': text}. GET '/notes/{note_id}' returns the stored note, or raises 404 if it "
+        "does not exist.",
+        "info": {"tier": 3, "method": "post",
+                 "exec": [{"method": "post", "path": "/notes", "json": {"text": "hi"},
+                           "status": 200, "json_subset": {"id": 1, "text": "hi"}},
+                          {"method": "get", "path": "/notes/1", "status": 200, "json_subset": {"id": 1, "text": "hi"}},
+                          {"method": "get", "path": "/notes/999", "status": 404}]},
+    },
+    {
+        "question": "Create a FastAPI app defining a Pydantic model UserOut with only 'username' (str). "
+        "Add a GET '/me' endpoint declared with response_model=UserOut that returns a dict "
+        "{'username': 'ada', 'password': 'secret'}, so the password is filtered out of the response.",
+        "info": {"tier": 3, "method": "get",
+                 "exec": [{"method": "get", "path": "/me", "status": 200,
+                           "json_subset": {"username": "ada"}, "json_absent": ["password"]}]},
+    },
+    {
+        "question": "Create a FastAPI app with a PUT endpoint at '/items/{item_id}' (integer) that accepts "
+        "a Pydantic body with 'name' (str) and 'price' (float) and returns {'id': item_id, 'name': name, "
+        "'price': price}.",
+        "info": {"tier": 2, "method": "put",
+                 "exec": [{"method": "put", "path": "/items/7", "json": {"name": "pen", "price": 1.5},
+                           "status": 200, "json_subset": {"id": 7, "name": "pen", "price": 1.5}}]},
+    },
 ]
 
 # Runs inside an isolated subprocess: load the model's app, exercise it with TestClient.
@@ -199,9 +246,15 @@ def main():
                 json=check.get("json"), headers=check.get("headers"),
             )
             ok = resp.status_code == check["status"]
-            if ok and "json_subset" in check:
+            if ok and ("json_subset" in check or "json_absent" in check):
                 body = resp.json()
-                ok = isinstance(body, dict) and all(body.get(k) == v for k, v in check["json_subset"].items())
+                if isinstance(body, dict):
+                    if "json_subset" in check:
+                        ok = ok and all(body.get(k) == v for k, v in check["json_subset"].items())
+                    if "json_absent" in check:
+                        ok = ok and all(k not in body for k in check["json_absent"])
+                else:
+                    ok = False
             passed += int(ok)
         except Exception:  # a failed request is just a miss
             pass
