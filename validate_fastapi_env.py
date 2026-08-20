@@ -56,7 +56,7 @@ import fastapi_endpoints as env_mod  # noqa: E402
 
 env = env_mod.load_environment()
 assert isinstance(env, SingleTurnEnv)
-assert len(env.dataset) == len(env_mod.TASKS) >= 21
+assert len(env.dataset) == len(env_mod.TASKS) >= 26
 assert env.rubric.weights == [0.1, 0.1, 0.1, 0.7]
 print(f"OK: env loaded — {len(env.dataset)} tasks, weights {env.rubric.weights}")
 
@@ -101,6 +101,11 @@ GOOD = {
     18: "from fastapi import FastAPI, HTTPException\nfrom pydantic import BaseModel\napp = FastAPI()\nclass Note(BaseModel):\n    text: str\n_notes = {}\n_seq = {'n': 0}\n@app.post('/notes')\ndef create_note(n: Note):\n    _seq['n'] += 1\n    nid = _seq['n']\n    _notes[nid] = {'id': nid, 'text': n.text}\n    return _notes[nid]\n@app.get('/notes/{note_id}')\ndef get_note(note_id: int):\n    if note_id not in _notes:\n        raise HTTPException(status_code=404)\n    return _notes[note_id]",
     19: "from fastapi import FastAPI\nfrom pydantic import BaseModel\napp = FastAPI()\nclass UserOut(BaseModel):\n    username: str\n@app.get('/me', response_model=UserOut)\ndef me():\n    return {'username': 'ada', 'password': 'secret'}",
     20: "from fastapi import FastAPI\nfrom pydantic import BaseModel\napp = FastAPI()\nclass ItemUpdate(BaseModel):\n    name: str\n    price: float\n@app.put('/items/{item_id}')\ndef update_item(item_id: int, body: ItemUpdate):\n    return {'id': item_id, 'name': body.name, 'price': body.price}",
+    21: "from fastapi import FastAPI\napp = FastAPI()\n_items = [{'id': 1}, {'id': 2}, {'id': 3}, {'id': 4}, {'id': 5}]\n@app.get('/items')\ndef list_items(limit: int = 10, offset: int = 0):\n    return _items[offset:offset + limit]",
+    22: "from fastapi import FastAPI, UploadFile\napp = FastAPI()\n@app.post('/upload')\nasync def upload(file: UploadFile):\n    contents = await file.read()\n    return {'filename': file.filename, 'size': len(contents)}",
+    23: "from fastapi import FastAPI, Depends, Header, HTTPException\napp = FastAPI()\ndef require_key(x_api_key: str = Header(...)):\n    if x_api_key != 'letmein':\n        raise HTTPException(status_code=401)\n@app.get('/secure')\ndef secure(_=Depends(require_key)):\n    return {'ok': True}",
+    24: "from fastapi import FastAPI, BackgroundTasks\nfrom pydantic import BaseModel\napp = FastAPI()\nclass Msg(BaseModel):\n    msg: str\n_logs = []\ndef _append(m):\n    _logs.append(m)\n@app.post('/log', status_code=202)\ndef log(m: Msg, bg: BackgroundTasks):\n    bg.add_task(_append, m.msg)\n    return {'queued': True}\n@app.get('/logs')\ndef logs():\n    return {'logs': _logs}",
+    25: "from fastapi import FastAPI\nfrom pydantic import BaseModel\napp = FastAPI()\nclass ItemPatch(BaseModel):\n    name: str | None = None\n    price: float | None = None\n@app.patch('/items/{item_id}')\ndef patch_item(item_id: int, body: ItemPatch):\n    return {'id': item_id, 'updated': body.model_dump(exclude_unset=True)}",
 }
 
 # static passes (valid + FastAPI() + get route) but behavior wrong -> should be 0.3
