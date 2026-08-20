@@ -56,7 +56,7 @@ import fastapi_endpoints as env_mod  # noqa: E402
 
 env = env_mod.load_environment()
 assert isinstance(env, SingleTurnEnv)
-assert len(env.dataset) == len(env_mod.TASKS) >= 16
+assert len(env.dataset) == len(env_mod.TASKS) >= 21
 assert env.rubric.weights == [0.1, 0.1, 0.1, 0.7]
 print(f"OK: env loaded — {len(env.dataset)} tasks, weights {env.rubric.weights}")
 
@@ -96,6 +96,11 @@ GOOD = {
     13: "from fastapi import FastAPI, Header\napp = FastAPI()\n@app.get('/whoami')\ndef whoami(x_user: str = Header(...)):\n    return {'user': x_user}",
     14: "from fastapi import FastAPI, Query\napp = FastAPI()\n@app.get('/search')\ndef search(limit: int = Query(10, le=100)):\n    return {'limit': limit}",
     15: "from fastapi import FastAPI, Response\napp = FastAPI()\n@app.delete('/items/{item_id}', status_code=204)\ndef delete_item(item_id: int):\n    return Response(status_code=204)",
+    16: "from fastapi import FastAPI\nfrom pydantic import BaseModel\napp = FastAPI()\nclass Customer(BaseModel):\n    name: str\n    email: str\nclass Order(BaseModel):\n    customer: Customer\n    total: float\n@app.post('/orders')\ndef create_order(o: Order):\n    return o",
+    17: "from enum import Enum\nfrom fastapi import FastAPI\nclass Color(str, Enum):\n    red = 'red'\n    green = 'green'\n    blue = 'blue'\napp = FastAPI()\n@app.get('/color/{name}')\ndef get_color(name: Color):\n    return {'color': name}",
+    18: "from fastapi import FastAPI, HTTPException\nfrom pydantic import BaseModel\napp = FastAPI()\nclass Note(BaseModel):\n    text: str\n_notes = {}\n_seq = {'n': 0}\n@app.post('/notes')\ndef create_note(n: Note):\n    _seq['n'] += 1\n    nid = _seq['n']\n    _notes[nid] = {'id': nid, 'text': n.text}\n    return _notes[nid]\n@app.get('/notes/{note_id}')\ndef get_note(note_id: int):\n    if note_id not in _notes:\n        raise HTTPException(status_code=404)\n    return _notes[note_id]",
+    19: "from fastapi import FastAPI\nfrom pydantic import BaseModel\napp = FastAPI()\nclass UserOut(BaseModel):\n    username: str\n@app.get('/me', response_model=UserOut)\ndef me():\n    return {'username': 'ada', 'password': 'secret'}",
+    20: "from fastapi import FastAPI\nfrom pydantic import BaseModel\napp = FastAPI()\nclass ItemUpdate(BaseModel):\n    name: str\n    price: float\n@app.put('/items/{item_id}')\ndef update_item(item_id: int, body: ItemUpdate):\n    return {'id': item_id, 'name': body.name, 'price': body.price}",
 }
 
 # static passes (valid + FastAPI() + get route) but behavior wrong -> should be 0.3
