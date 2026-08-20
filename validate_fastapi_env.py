@@ -56,7 +56,7 @@ import fastapi_endpoints as env_mod  # noqa: E402
 
 env = env_mod.load_environment()
 assert isinstance(env, SingleTurnEnv)
-assert len(env.dataset) == len(env_mod.TASKS) == 11
+assert len(env.dataset) == len(env_mod.TASKS) >= 16
 assert env.rubric.weights == [0.1, 0.1, 0.1, 0.7]
 print(f"OK: env loaded — {len(env.dataset)} tasks, weights {env.rubric.weights}")
 
@@ -91,6 +91,11 @@ GOOD = {
     7: "from fastapi import FastAPI, Depends\napp = FastAPI()\ndef current_user():\n    return 'guest'\n@app.get('/whoami')\ndef whoami(user: str = Depends(current_user)):\n    return {'user': user}",
     8: "from fastapi import FastAPI\nfrom pydantic import BaseModel\napp = FastAPI()\nclass User(BaseModel):\n    id: int\n    name: str\n@app.get('/users/{user_id}', response_model=User)\ndef get_user(user_id: int):\n    return {'id': user_id, 'name': 'Ada'}",
     10: "from fastapi import FastAPI\napp = FastAPI()\n@app.get('/double/{item_id}')\ndef double(item_id: int):\n    return {'doubled': item_id * 2}",
+    11: "from fastapi import FastAPI, HTTPException\napp = FastAPI()\n@app.get('/items/{item_id}')\ndef get_item(item_id: int):\n    if item_id == 1:\n        return {'item_id': 1, 'name': 'widget'}\n    raise HTTPException(status_code=404)",
+    12: "from fastapi import FastAPI\nfrom pydantic import BaseModel\napp = FastAPI()\nclass Signup(BaseModel):\n    email: str\n    age: int\n@app.post('/signup')\ndef signup(s: Signup):\n    return s",
+    13: "from fastapi import FastAPI, Header\napp = FastAPI()\n@app.get('/whoami')\ndef whoami(x_user: str = Header(...)):\n    return {'user': x_user}",
+    14: "from fastapi import FastAPI, Query\napp = FastAPI()\n@app.get('/search')\ndef search(limit: int = Query(10, le=100)):\n    return {'limit': limit}",
+    15: "from fastapi import FastAPI, Response\napp = FastAPI()\n@app.delete('/items/{item_id}', status_code=204)\ndef delete_item(item_id: int):\n    return Response(status_code=204)",
 }
 
 # static passes (valid + FastAPI() + get route) but behavior wrong -> should be 0.3

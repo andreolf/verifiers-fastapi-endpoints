@@ -1,6 +1,6 @@
 [project]
 name = "fastapi-endpoints"
-version = "0.2.0"
+version = "0.3.0"
 description = "Eval of a model's ability to write correct FastAPI code, scored by a static floor plus execution-based TestClient behavior rewards."
 requires-python = ">=3.11"
 dependencies = [

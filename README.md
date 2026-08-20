@@ -10,10 +10,15 @@ the reward reflects actual behavior — not surface pattern-matching.
 
 ## What it tests
 
-11 tasks across three difficulty tiers, covering: basic routes, integer path params, Pydantic
-request bodies, optional query params, explicit status codes (`201`), `APIRouter` with a prefix,
-dependency injection (`Depends`), `response_model`, and two "fix the broken snippet" repair
-tasks.
+16 tasks across three difficulty tiers, covering: basic routes, integer path params, Pydantic
+request bodies, optional query params, explicit status codes (`201`/`204`), `APIRouter` with a
+prefix, dependency injection (`Depends`), `response_model`, header params (`Header`), query
+constraints (`Query(le=...)`), and two "fix the broken snippet" repair tasks.
+
+Crucially it also exercises **error paths**, which are where models most often go wrong: a `404`
+via `HTTPException`, automatic `422` on a malformed Pydantic body, `422` on a missing required
+header, and `422` on an out-of-range query parameter. Each of these is asserted by a real
+request, not by static inspection.
 
 ## Reward
 
