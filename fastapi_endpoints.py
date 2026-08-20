@@ -203,6 +203,53 @@ TASKS: list[dict] = [
                  "exec": [{"method": "put", "path": "/items/7", "json": {"name": "pen", "price": 1.5},
                            "status": 200, "json_subset": {"id": 7, "name": "pen", "price": 1.5}}]},
     },
+    {
+        "question": "Create a FastAPI app with a GET '/items' endpoint that serves from a fixed in-memory "
+        "list of five items [{'id': 1}, {'id': 2}, {'id': 3}, {'id': 4}, {'id': 5}], using query params "
+        "'limit' (int, default 10) and 'offset' (int, default 0), returning items[offset:offset+limit] "
+        "as a JSON list.",
+        "info": {"tier": 3, "method": "get",
+                 "exec": [{"method": "get", "path": "/items?limit=2&offset=1", "status": 200,
+                           "json_equals": [{"id": 2}, {"id": 3}]},
+                          {"method": "get", "path": "/items", "status": 200,
+                           "json_equals": [{"id": 1}, {"id": 2}, {"id": 3}, {"id": 4}, {"id": 5}]}]},
+    },
+    {
+        "question": "Create a FastAPI app with a POST '/upload' endpoint that accepts an uploaded file "
+        "(UploadFile) in a form field named 'file', reads its contents, and returns "
+        "{'filename': <name>, 'size': <number of bytes>}.",
+        "info": {"tier": 3, "method": "post",
+                 "exec": [{"method": "post", "path": "/upload", "files": {"file": ["note.txt", "hello"]},
+                           "status": 200, "json_subset": {"filename": "note.txt", "size": 5}}]},
+    },
+    {
+        "question": "Create a FastAPI app with a GET '/secure' endpoint that uses a dependency reading the "
+        "'x-api-key' header (via Header) and raises HTTPException 401 unless it equals 'letmein'. On "
+        "success return {'ok': True}.",
+        "info": {"tier": 3, "method": "get",
+                 "exec": [{"method": "get", "path": "/secure", "headers": {"x-api-key": "letmein"},
+                           "status": 200, "json_subset": {"ok": True}},
+                          {"method": "get", "path": "/secure", "headers": {"x-api-key": "nope"},
+                           "status": 401}]},
+    },
+    {
+        "question": "Create a FastAPI app with a POST '/log' endpoint that accepts a Pydantic body "
+        "{'msg': str}, uses BackgroundTasks to append msg to an in-memory list, and returns HTTP 202 with "
+        "{'queued': True}. Add a GET '/logs' endpoint returning {'logs': [...]} with the accumulated "
+        "messages.",
+        "info": {"tier": 3, "method": "post",
+                 "exec": [{"method": "post", "path": "/log", "json": {"msg": "hi"},
+                           "status": 202, "json_subset": {"queued": True}},
+                          {"method": "get", "path": "/logs", "status": 200, "json_subset": {"logs": ["hi"]}}]},
+    },
+    {
+        "question": "Create a FastAPI app with a PATCH '/items/{item_id}' (integer) that accepts a Pydantic "
+        "body where 'name' (str) and 'price' (float) are both optional (default None), and returns "
+        "{'id': item_id, 'updated': <dict of only the fields the client actually sent>} using exclude_unset.",
+        "info": {"tier": 3, "method": "patch",
+                 "exec": [{"method": "patch", "path": "/items/3", "json": {"name": "pen"},
+                           "status": 200, "json_subset": {"id": 3, "updated": {"name": "pen"}}}]},
+    },
 ]
 
 # Runs inside an isolated subprocess: load the model's app, exercise it with TestClient.
@@ -241,11 +288,18 @@ def main():
     passed = 0
     for check in checks:
         try:
+            files = None
+            if "files" in check:
+                # each entry is [filename, text-content]; sent as multipart/form-data
+                files = {k: (v[0], v[1].encode() if isinstance(v[1], str) else v[1]) for k, v in check["files"].items()}
             resp = client.request(
                 check["method"].upper(), check["path"],
                 json=check.get("json"), headers=check.get("headers"),
+                data=check.get("data"), files=files,
             )
             ok = resp.status_code == check["status"]
+            if ok and "json_equals" in check:
+                ok = resp.json() == check["json_equals"]
             if ok and ("json_subset" in check or "json_absent" in check):
                 body = resp.json()
                 if isinstance(body, dict):
