@@ -10,23 +10,25 @@ the reward reflects actual behavior — not surface pattern-matching.
 
 ## What it tests
 
-31 tasks across three difficulty tiers, covering: basic routes, integer path params, Pydantic
+36 tasks across three difficulty tiers, covering: basic routes, integer path params, Pydantic
 request bodies (including **nested models**), optional query params, **pagination**
 (`limit`/`offset`), explicit status codes (`201`/`202`/`204`), `APIRouter` with a prefix and
-**nested routers**, dependency injection (`Depends`), **header- and cookie-based auth** (401),
-`response_model` (including **field exclusion**, e.g. hiding a password), header params (`Header`),
-query constraints (`Query(le=...)`), **enum** path params, **file upload** (`UploadFile`),
-**background tasks** (`BackgroundTasks`), a **WebSocket** echo endpoint, a **custom exception
-handler** (418), a **redirect** (`RedirectResponse` 307), a **stateful multi-endpoint** app
-(create → retrieve → 404), a combined path-param + body `PUT`, a partial `PATCH`
-(`exclude_unset`), and two "fix the broken snippet" repair tasks.
+**nested routers**, **sub-application `mount()`**, dependency injection (`Depends`, incl. the
+**`Annotated`** form), **header- and cookie-based auth** (401), `response_model` (including
+**field exclusion**, e.g. hiding a password), header params (`Header`), query constraints
+(`Query(le=...)`), **enum** path params, **file upload** (`UploadFile`), **background tasks**
+(`BackgroundTasks`), a **WebSocket** echo endpoint, a **streaming** response (`StreamingResponse`),
+**HTTP middleware** (custom response header), a **custom exception handler** (418), a **redirect**
+(`RedirectResponse` 307), an **OpenAPI-schema** assertion (`/openapi.json` documents a path), a
+**stateful multi-endpoint** app (create → retrieve → 404), a combined path-param + body `PUT`, a
+partial `PATCH` (`exclude_unset`), and two "fix the broken snippet" repair tasks.
 
 Crucially it also exercises **error paths**, which are where models most often go wrong: a `404`
 via `HTTPException`, a `401` from header/cookie auth dependencies, a `418` from a custom exception
 handler, automatic `422` on a malformed (or nested-invalid) Pydantic body, `422` on a missing
 required header, `422` on an out-of-range query parameter, and `422` on an invalid enum value.
-Behavior is asserted by real requests — HTTP status/body/headers, redirect `Location`, and a live
-WebSocket exchange — not by static inspection.
+Behavior is asserted by real requests — HTTP status/body/headers, redirect `Location`, streamed
+body, OpenAPI schema, and a live WebSocket exchange — not by static inspection.
 
 ## Reward
 
