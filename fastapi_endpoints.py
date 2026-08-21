@@ -288,6 +288,41 @@ TASKS: list[dict] = [
                  "exec": [{"method": "get", "path": "/old", "no_redirect": True, "status": 307,
                            "resp_headers": {"location": "/new"}}]},
     },
+    {
+        "question": "Create a FastAPI app with a GET '/stream' endpoint that returns a StreamingResponse "
+        "yielding the three text chunks 'a', 'b', 'c' in order, so the full response body is 'abc'.",
+        "info": {"tier": 3, "method": "get",
+                 "exec": [{"method": "get", "path": "/stream", "status": 200, "text_equals": "abc"}]},
+    },
+    {
+        "question": "Create a FastAPI app that uses the modern Annotated dependency syntax: define a "
+        "dependency returning the fixed string 'guest', and a GET '/whoami2' endpoint whose parameter is "
+        "typed as Annotated[str, Depends(that_dependency)], returning {'user': user}.",
+        "info": {"tier": 3, "method": "get",
+                 "exec": [{"method": "get", "path": "/whoami2", "status": 200, "json_subset": {"user": "guest"}}]},
+    },
+    {
+        "question": "Create a FastAPI app that mounts a second FastAPI sub-application at path '/sub'. The "
+        "sub-application has a GET '/ping' endpoint returning {'sub': 'pong'}, reachable at '/sub/ping'.",
+        "info": {"tier": 3, "method": "get",
+                 "exec": [{"method": "get", "path": "/sub/ping", "status": 200, "json_subset": {"sub": "pong"}}]},
+    },
+    {
+        "question": "Create a FastAPI app with an HTTP middleware (via @app.middleware('http')) that adds "
+        "the response header 'X-Custom: yes' to every response. Add a GET '/ping' endpoint returning "
+        "{'ping': 'pong'}.",
+        "info": {"tier": 3, "method": "get",
+                 "exec": [{"method": "get", "path": "/ping", "status": 200, "json_subset": {"ping": "pong"},
+                           "resp_headers": {"x-custom": "yes"}}]},
+    },
+    {
+        "question": "Create a FastAPI app with a GET '/widgets' endpoint returning an empty list. The "
+        "app's auto-generated OpenAPI schema at '/openapi.json' should document the '/widgets' path.",
+        "info": {"tier": 3, "method": "get",
+                 "exec": [{"method": "get", "path": "/widgets", "status": 200, "json_equals": []},
+                          {"method": "get", "path": "/openapi.json", "status": 200,
+                           "json_path_exists": ["paths", "/widgets"]}]},
+    },
 ]
 
 # Runs inside an isolated subprocess: load the model's app, exercise it with TestClient.
@@ -347,6 +382,16 @@ def main():
             ok = resp.status_code == check["status"]
             if ok and "resp_headers" in check:
                 ok = all(resp.headers.get(k.lower()) == v for k, v in check["resp_headers"].items())
+            if ok and "text_equals" in check:
+                ok = resp.text == check["text_equals"]
+            if ok and "json_path_exists" in check:
+                node = resp.json()
+                for key in check["json_path_exists"]:
+                    if isinstance(node, dict) and key in node:
+                        node = node[key]
+                    else:
+                        ok = False
+                        break
             if ok and "json_equals" in check:
                 ok = resp.json() == check["json_equals"]
             if ok and ("json_subset" in check or "json_absent" in check):

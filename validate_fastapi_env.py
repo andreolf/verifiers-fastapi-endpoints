@@ -56,7 +56,7 @@ import fastapi_endpoints as env_mod  # noqa: E402
 
 env = env_mod.load_environment()
 assert isinstance(env, SingleTurnEnv)
-assert len(env.dataset) == len(env_mod.TASKS) >= 31
+assert len(env.dataset) == len(env_mod.TASKS) >= 36
 assert env.rubric.weights == [0.1, 0.1, 0.1, 0.7]
 print(f"OK: env loaded — {len(env.dataset)} tasks, weights {env.rubric.weights}")
 
@@ -111,6 +111,11 @@ GOOD = {
     28: "from fastapi import FastAPI, Request\nfrom fastapi.responses import JSONResponse\napp = FastAPI()\nclass TeapotError(Exception):\n    pass\n@app.exception_handler(TeapotError)\nasync def teapot_handler(request: Request, exc: TeapotError):\n    return JSONResponse(status_code=418, content={'error': 'teapot'})\n@app.get('/brew')\ndef brew():\n    raise TeapotError()",
     29: "from fastapi import FastAPI, APIRouter\napp = FastAPI()\nchild = APIRouter(prefix='/v1')\n@child.get('/status')\ndef status():\n    return {'status': 'up'}\nparent = APIRouter(prefix='/api')\nparent.include_router(child)\napp.include_router(parent)",
     30: "from fastapi import FastAPI\nfrom fastapi.responses import RedirectResponse\napp = FastAPI()\n@app.get('/old')\ndef old():\n    return RedirectResponse('/new', status_code=307)",
+    31: "from fastapi import FastAPI\nfrom fastapi.responses import StreamingResponse\napp = FastAPI()\ndef gen():\n    yield 'a'\n    yield 'b'\n    yield 'c'\n@app.get('/stream')\ndef stream():\n    return StreamingResponse(gen())",
+    32: "from typing import Annotated\nfrom fastapi import FastAPI, Depends\napp = FastAPI()\ndef current_user():\n    return 'guest'\n@app.get('/whoami2')\ndef whoami(user: Annotated[str, Depends(current_user)]):\n    return {'user': user}",
+    33: "from fastapi import FastAPI\napp = FastAPI()\nsubapp = FastAPI()\n@subapp.get('/ping')\ndef sub_ping():\n    return {'sub': 'pong'}\napp.mount('/sub', subapp)",
+    34: "from fastapi import FastAPI, Request\napp = FastAPI()\n@app.middleware('http')\nasync def add_header(request: Request, call_next):\n    response = await call_next(request)\n    response.headers['X-Custom'] = 'yes'\n    return response\n@app.get('/ping')\ndef ping():\n    return {'ping': 'pong'}",
+    35: "from fastapi import FastAPI\napp = FastAPI()\n@app.get('/widgets')\ndef widgets():\n    return []",
 }
 
 # static passes (valid + FastAPI() + get route) but behavior wrong -> should be 0.3
