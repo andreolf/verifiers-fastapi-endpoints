@@ -250,6 +250,44 @@ TASKS: list[dict] = [
                  "exec": [{"method": "patch", "path": "/items/3", "json": {"name": "pen"},
                            "status": 200, "json_subset": {"id": 3, "updated": {"name": "pen"}}}]},
     },
+    {
+        "question": "Create a FastAPI app with a WebSocket endpoint at '/ws' that accepts the connection, "
+        "receives a text message, and sends back 'echo: ' followed by that message.",
+        "info": {"tier": 3, "method": "websocket",
+                 "exec": [{"ws": {"path": "/ws", "send": "hi", "expect": "echo: hi"}}]},
+    },
+    {
+        "question": "Create a FastAPI app with a GET '/dashboard' endpoint that reads a cookie named "
+        "'session' (via Cookie) and returns {'user': 'ada'} if it equals 'valid', otherwise raises "
+        "HTTPException 401.",
+        "info": {"tier": 3, "method": "get",
+                 "exec": [{"method": "get", "path": "/dashboard", "headers": {"Cookie": "session=valid"},
+                           "status": 200, "json_subset": {"user": "ada"}},
+                          {"method": "get", "path": "/dashboard", "headers": {"Cookie": "session=bad"},
+                           "status": 401}]},
+    },
+    {
+        "question": "Create a FastAPI app that defines a custom exception class TeapotError and registers "
+        "an exception handler (via @app.exception_handler) returning a JSONResponse with status 418 and "
+        "body {'error': 'teapot'}. Add a GET '/brew' endpoint that raises TeapotError.",
+        "info": {"tier": 3, "method": "get",
+                 "exec": [{"method": "get", "path": "/brew", "status": 418, "json_subset": {"error": "teapot"}}]},
+    },
+    {
+        "question": "Create a FastAPI app with a parent APIRouter mounted at prefix '/api' that includes a "
+        "child APIRouter mounted at prefix '/v1'. The child has a GET '/status' endpoint returning "
+        "{'status': 'up'}, so the final path is '/api/v1/status'.",
+        "info": {"tier": 3, "method": "get",
+                 "exec": [{"method": "get", "path": "/api/v1/status", "status": 200,
+                           "json_subset": {"status": "up"}}]},
+    },
+    {
+        "question": "Create a FastAPI app with a GET '/old' endpoint that returns a RedirectResponse to "
+        "'/new' with status code 307.",
+        "info": {"tier": 2, "method": "get",
+                 "exec": [{"method": "get", "path": "/old", "no_redirect": True, "status": 307,
+                           "resp_headers": {"location": "/new"}}]},
+    },
 ]
 
 # Runs inside an isolated subprocess: load the model's app, exercise it with TestClient.
@@ -288,6 +326,14 @@ def main():
     passed = 0
     for check in checks:
         try:
+            if "ws" in check:
+                # websocket sub-check: connect, send text, expect an echoed reply
+                spec = check["ws"]
+                with client.websocket_connect(spec["path"]) as ws:
+                    ws.send_text(spec["send"])
+                    got = ws.receive_text()
+                passed += int(got == spec["expect"])
+                continue
             files = None
             if "files" in check:
                 # each entry is [filename, text-content]; sent as multipart/form-data
@@ -296,8 +342,11 @@ def main():
                 check["method"].upper(), check["path"],
                 json=check.get("json"), headers=check.get("headers"),
                 data=check.get("data"), files=files,
+                follow_redirects=not check.get("no_redirect", False),
             )
             ok = resp.status_code == check["status"]
+            if ok and "resp_headers" in check:
+                ok = all(resp.headers.get(k.lower()) == v for k, v in check["resp_headers"].items())
             if ok and "json_equals" in check:
                 ok = resp.json() == check["json_equals"]
             if ok and ("json_subset" in check or "json_absent" in check):
@@ -330,7 +379,7 @@ def _extract_code(text: str) -> str:
 
 
 def _iter_route_methods(tree: ast.AST):
-    verbs = {"get", "post", "put", "delete", "patch", "options", "head"}
+    verbs = {"get", "post", "put", "delete", "patch", "options", "head", "websocket"}
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             for dec in node.decorator_list:
