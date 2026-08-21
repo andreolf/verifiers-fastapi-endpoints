@@ -56,7 +56,7 @@ import fastapi_endpoints as env_mod  # noqa: E402
 
 env = env_mod.load_environment()
 assert isinstance(env, SingleTurnEnv)
-assert len(env.dataset) == len(env_mod.TASKS) >= 26
+assert len(env.dataset) == len(env_mod.TASKS) >= 31
 assert env.rubric.weights == [0.1, 0.1, 0.1, 0.7]
 print(f"OK: env loaded — {len(env.dataset)} tasks, weights {env.rubric.weights}")
 
@@ -106,6 +106,11 @@ GOOD = {
     23: "from fastapi import FastAPI, Depends, Header, HTTPException\napp = FastAPI()\ndef require_key(x_api_key: str = Header(...)):\n    if x_api_key != 'letmein':\n        raise HTTPException(status_code=401)\n@app.get('/secure')\ndef secure(_=Depends(require_key)):\n    return {'ok': True}",
     24: "from fastapi import FastAPI, BackgroundTasks\nfrom pydantic import BaseModel\napp = FastAPI()\nclass Msg(BaseModel):\n    msg: str\n_logs = []\ndef _append(m):\n    _logs.append(m)\n@app.post('/log', status_code=202)\ndef log(m: Msg, bg: BackgroundTasks):\n    bg.add_task(_append, m.msg)\n    return {'queued': True}\n@app.get('/logs')\ndef logs():\n    return {'logs': _logs}",
     25: "from fastapi import FastAPI\nfrom pydantic import BaseModel\napp = FastAPI()\nclass ItemPatch(BaseModel):\n    name: str | None = None\n    price: float | None = None\n@app.patch('/items/{item_id}')\ndef patch_item(item_id: int, body: ItemPatch):\n    return {'id': item_id, 'updated': body.model_dump(exclude_unset=True)}",
+    26: "from fastapi import FastAPI, WebSocket\napp = FastAPI()\n@app.websocket('/ws')\nasync def ws(websocket: WebSocket):\n    await websocket.accept()\n    msg = await websocket.receive_text()\n    await websocket.send_text('echo: ' + msg)",
+    27: "from fastapi import FastAPI, Cookie, HTTPException\napp = FastAPI()\n@app.get('/dashboard')\ndef dashboard(session: str | None = Cookie(default=None)):\n    if session != 'valid':\n        raise HTTPException(status_code=401)\n    return {'user': 'ada'}",
+    28: "from fastapi import FastAPI, Request\nfrom fastapi.responses import JSONResponse\napp = FastAPI()\nclass TeapotError(Exception):\n    pass\n@app.exception_handler(TeapotError)\nasync def teapot_handler(request: Request, exc: TeapotError):\n    return JSONResponse(status_code=418, content={'error': 'teapot'})\n@app.get('/brew')\ndef brew():\n    raise TeapotError()",
+    29: "from fastapi import FastAPI, APIRouter\napp = FastAPI()\nchild = APIRouter(prefix='/v1')\n@child.get('/status')\ndef status():\n    return {'status': 'up'}\nparent = APIRouter(prefix='/api')\nparent.include_router(child)\napp.include_router(parent)",
+    30: "from fastapi import FastAPI\nfrom fastapi.responses import RedirectResponse\napp = FastAPI()\n@app.get('/old')\ndef old():\n    return RedirectResponse('/new', status_code=307)",
 }
 
 # static passes (valid + FastAPI() + get route) but behavior wrong -> should be 0.3
